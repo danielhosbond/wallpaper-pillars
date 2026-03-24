@@ -449,6 +449,7 @@
   </div>
 </div>
 <input type="file" id="import-config-input" accept=".json">
+<label id="color-pick-trigger" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden;"></label>
 
 <!-- Main -->
 <div id="main">
@@ -469,10 +470,10 @@
 
     <div class="panel-section">
       <div class="section-label">Background</div>
-      <div class="color-row" id="bg-color-row">
+      <label class="color-row" id="bg-color-row" for="bg-color-input">
         <div class="color-swatch" id="bg-swatch"></div>
         <span class="color-hex" id="bg-hex">#F2EDDF</span>
-      </div>
+      </label>
       <input type="color" id="bg-color-input" value="#F2EDDF">
     </div>
 
@@ -760,10 +761,10 @@ function redraw() {
 
 // ── Hit testing ────────────────────────────────────────────────────────────────
 
-canvas.addEventListener('mousedown', (e) => {
+function hitTestCanvas(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
-  const mx = (e.clientX - rect.left) * (canvas.width  / rect.width);
-  const my = (e.clientY - rect.top)  * (canvas.height / rect.height);
+  const mx = (clientX - rect.left) * (canvas.width  / rect.width);
+  const my = (clientY - rect.top)  * (canvas.height / rect.height);
 
   const cw = canvas.width;
   const ch = canvas.height;
@@ -783,11 +784,22 @@ canvas.addEventListener('mousedown', (e) => {
   for (const i of hitOrder) {
     const x = startX + i * step;
     if (mx >= x && mx <= x + pillarW && my >= startY && my <= startY + pillarH) {
-      const input = document.getElementById(`pillar-input-${i}`);
-      if (input) input.click();
+      const trigger = document.getElementById('color-pick-trigger');
+      trigger.htmlFor = `pillar-input-${i}`;
+      trigger.click();
       break;
     }
   }
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  hitTestCanvas(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  hitTestCanvas(t.clientX, t.clientY);
 });
 
 // ── Build pillar swatches ──────────────────────────────────────────────────────
@@ -802,9 +814,10 @@ function buildPillarSwatches() {
       : state.pillarColors[state.pillarColors.length - 1];
 
     // Swatch item
-    const item   = document.createElement('div');
+    const item   = document.createElement('label');
     item.className = 'pillar-swatch-item';
     item.title = `Pillar ${i + 1}`;
+    item.htmlFor = `pillar-input-${i}`;
 
     const swatch = document.createElement('div');
     swatch.className = 'color-swatch';
@@ -817,9 +830,6 @@ function buildPillarSwatches() {
 
     item.appendChild(swatch);
     item.appendChild(num);
-    item.addEventListener('click', () => {
-      document.getElementById(`pillar-input-${i}`).click();
-    });
     pillarsGrid.appendChild(item);
 
     // Hidden color input
@@ -997,9 +1007,6 @@ document.getElementById('stack-right-btn').addEventListener('click', () => {
 });
 
 // Background color
-document.getElementById('bg-color-row').addEventListener('click', () => {
-  document.getElementById('bg-color-input').click();
-});
 document.getElementById('bg-color-input').addEventListener('input', (e) => {
   state.bgColor = e.target.value;
   document.getElementById('bg-swatch').style.background = state.bgColor;
