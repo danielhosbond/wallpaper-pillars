@@ -312,6 +312,128 @@
       width: 0;
       height: 0;
     }
+
+    /* ── Mobile tab bar (hidden on desktop) ── */
+    #mobile-tabs {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        height: 100dvh;
+        overflow: hidden;
+      }
+
+      /* Topbar: hide secondary buttons, keep Reset + Export 8K */
+      #import-config-btn,
+      #export-config-btn {
+        display: none;
+      }
+
+      #topbar h1 {
+        font-size: 13px;
+      }
+
+      .btn {
+        padding: 8px 14px;
+        font-size: 13px;
+      }
+
+      /* Main column layout */
+      #main {
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* Canvas: top portion */
+      #canvas-area {
+        flex: 0 0 auto;
+        height: 38vh;
+        padding: 10px;
+        order: 1;
+      }
+
+      #canvas-label {
+        display: none;
+      }
+
+      /* Mobile tab bar */
+      #mobile-tabs {
+        display: flex;
+        order: 2;
+        flex-shrink: 0;
+        border-top: 1px solid #e0ddd8;
+        border-bottom: 1px solid #e0ddd8;
+        background: #f8f7f4;
+      }
+
+      .mobile-tab {
+        flex: 1;
+        padding: 10px 0;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        background: transparent;
+        border: none;
+        color: #999;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+      }
+
+      .mobile-tab.active {
+        color: #1a1a1a;
+        border-bottom-color: #1a1a1a;
+      }
+
+      /* Panels: hidden by default on mobile, shown when active */
+      .panel {
+        display: none;
+        order: 3;
+        width: 100%;
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .panel.mobile-active {
+        display: block;
+      }
+
+      /* Touch target sizing */
+      .ratio-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+
+      .color-swatch {
+        width: 36px;
+        height: 36px;
+      }
+
+      .pillar-swatch-item .color-swatch {
+        width: 36px;
+        height: 36px;
+      }
+
+      .preset-swatch {
+        width: 44px;
+        height: 44px;
+      }
+
+      input[type="range"] {
+        height: 28px;
+        cursor: pointer;
+      }
+
+      .slider-label {
+        width: 64px;
+        font-size: 13px;
+      }
+
+      .panel-section {
+        padding: 14px 16px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -378,6 +500,12 @@
   <div id="canvas-area">
     <canvas id="preview-canvas"></canvas>
     <div id="canvas-label">Preview — exports at 7680 × 4320 px</div>
+  </div>
+
+  <!-- Mobile tab bar -->
+  <div id="mobile-tabs">
+    <button class="mobile-tab active" data-target="left-panel">Settings</button>
+    <button class="mobile-tab" data-target="right-panel">Colors &amp; Shape</button>
   </div>
 
   <!-- Right Panel -->
@@ -991,6 +1119,21 @@ buildPresets();
 buildPillarSwatches();
 syncUI();
 redraw();
+
+// ── Mobile tabs ───────────────────────────────────────────────────────────────
+(function () {
+  const tabs = document.querySelectorAll('.mobile-tab');
+  document.getElementById('left-panel').classList.add('mobile-active');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('mobile-active'));
+      document.getElementById(tab.dataset.target).classList.add('mobile-active');
+    });
+  });
+}());
 </script>
 
 </body>
