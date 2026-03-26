@@ -45,6 +45,17 @@ Toggle which end of the pillar group sits on top:
 - **Right on top** (default) — the rightmost pillar is fully visible, earlier pillars peek out to the left
 - **Left on top** — the leftmost pillar is fully visible, later pillars peek out to the right
 
+### Reverse color order
+
+Click **Reverse Color Order** (below the stack order toggle) to flip the pillar color array. This reverses the gradient direction without changing the stack order.
+
+### Orientation
+
+Switch between horizontal and vertical pillar stacking:
+
+- **Horizontal** (default) — pillars are arranged side by side, left to right. Defaults the canvas ratio to 16:9.
+- **Vertical** — pillars are stacked top to bottom, ideal for mobile/portrait wallpapers. Defaults the canvas ratio to 9:16.
+
 ### Presets
 
 30 built-in presets organised into four groups. Clicking a preset sets the background color and all pillar colors at once.
@@ -60,6 +71,10 @@ Toggle which end of the pillar group sits on top:
 
 **Pastel** — soft, high-lightness palettes on a near-white background
 - Blush, Mint, Powder, Peach, Lilac
+
+### Randomize
+
+Click **Randomize** (below the presets grid) to generate a themed palette. Each click picks a random color harmony strategy — monochrome, analogous, complementary, triadic, or split-complementary — and produces a cohesive set of pillar colors with a matching background. The theme can be light or dark.
 
 ### Per-pillar colors
 
@@ -91,7 +106,7 @@ PNG is used because the image is purely geometric — lossless compression means
 
 ### Export Config
 
-Click **Export Config** to download the current design as a JSON file (`wallpaper-config.json`). The file captures all state: ratio, background color, pillar count, pillar colors, all shape slider values, and stack order.
+Click **Export Config** to download the current design as a JSON file (`wallpaper-config.json`). The file captures all state: ratio, background color, pillar count, pillar colors, all shape slider values, stack order, and orientation.
 
 ### Import Config
 
@@ -113,7 +128,8 @@ Example config file:
   "pillarHeightPct": 70,
   "overlapPct": 55,
   "shadePct": 0,
-  "stackReversed": false
+  "stackReversed": false,
+  "flipped": false
 }
 ```
 

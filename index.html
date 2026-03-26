@@ -488,11 +488,21 @@
         <button class="ratio-btn" id="stack-left-btn">Left on top</button>
         <button class="ratio-btn active" id="stack-right-btn">Right on top</button>
       </div>
+      <button class="btn btn-outline" id="reverse-order-btn" style="margin-top: 8px; width: 100%;">Reverse Color Order</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-label">Orientation</div>
+      <div class="btn-group">
+        <button class="ratio-btn active" id="flip-off-btn">Horizontal</button>
+        <button class="ratio-btn" id="flip-on-btn">Vertical</button>
+      </div>
     </div>
 
     <div class="panel-section">
       <div class="section-label">Presets</div>
       <div class="presets-grid" id="presets-grid"></div>
+      <button class="btn btn-outline" id="randomize-btn" style="margin-top: 10px; width: 100%;">Randomize</button>
     </div>
 
   </div>
@@ -632,6 +642,7 @@ const DEFAULTS = {
   overlapPct: 55,
   shadePct: 0,
   stackReversed: false,
+  flipped: false,
 };
 
 // ── State ──────────────────────────────────────────────────────────────────────
@@ -647,6 +658,7 @@ let state = {
   overlapPct: DEFAULTS.overlapPct,
   shadePct: DEFAULTS.shadePct,
   stackReversed: DEFAULTS.stackReversed,
+  flipped: DEFAULTS.flipped,
 };
 
 // ── DOM refs ───────────────────────────────────────────────────────────────────
@@ -707,49 +719,80 @@ function fitCanvas() {
 // ── Draw ───────────────────────────────────────────────────────────────────────
 
 function draw(c, cw, ch) {
-  const { bgColor, pillarCount, pillarColors, roundness, pillarWidthPct, pillarHeightPct, overlapPct, shadePct } = state;
+  const { bgColor, pillarCount, pillarColors, roundness, pillarWidthPct, pillarHeightPct, overlapPct, shadePct, flipped } = state;
 
   // Background
   c.fillStyle = bgColor;
   c.fillRect(0, 0, cw, ch);
 
-  const pillarW = cw * pillarWidthPct / 100;
-  const pillarH = ch * pillarHeightPct / 100;
+  // In flipped mode, swap width/height axes so pillars stack vertically
+  const pillarW = flipped ? ch * pillarWidthPct / 100 : cw * pillarWidthPct / 100;
+  const pillarH = flipped ? cw * pillarHeightPct / 100 : ch * pillarHeightPct / 100;
   const step    = pillarW * (1 - overlapPct / 100);
   const totalW  = pillarW + step * (pillarCount - 1);
-  const startX  = (cw - totalW) / 2;
-  const startY  = (ch - pillarH) / 2;
   const rx      = (pillarW / 2) * (roundness / 100);
 
   const drawOrder = state.stackReversed
     ? Array.from({ length: pillarCount }, (_, k) => pillarCount - 1 - k)
     : Array.from({ length: pillarCount }, (_, k) => k);
 
-  for (let di = 0; di < drawOrder.length; di++) {
-    const i     = drawOrder[di];
-    const x     = startX + i * step;
-    const color = pillarColors[i] !== undefined ? pillarColors[i] : pillarColors[pillarColors.length - 1];
-    c.fillStyle = color;
-    roundRectPath(c, x, startY, pillarW, pillarH, rx);
-    c.fill();
+  if (flipped) {
+    // Vertical stacking: pillars are horizontal bars stacked top-to-bottom
+    const startY = (ch - totalW) / 2;
+    const startX = (cw - pillarH) / 2;
 
-    // Shade gradient on the overlap edge (skip the first pillar drawn — nothing behind it yet)
-    if (di > 0 && shadePct > 0) {
-      const shadowW = pillarW * 0.7;
-      const alpha   = (shadePct / 100) * 0.75;
-      // Right-on-top: front pillar comes from the right, shadow on its left edge
-      // Left-on-top:  front pillar comes from the left, shadow on its right edge
-      const fromX = state.stackReversed ? x + pillarW : x;
-      const toX   = state.stackReversed ? x + pillarW - shadowW : x + shadowW;
-      const grad  = c.createLinearGradient(fromX, 0, toX, 0);
-      grad.addColorStop(0, `rgba(0,0,0,${alpha})`);
-      grad.addColorStop(1, 'rgba(0,0,0,0)');
-      c.save();
+    for (let di = 0; di < drawOrder.length; di++) {
+      const i     = drawOrder[di];
+      const y     = startY + i * step;
+      const color = pillarColors[i] !== undefined ? pillarColors[i] : pillarColors[pillarColors.length - 1];
+      c.fillStyle = color;
+      roundRectPath(c, startX, y, pillarH, pillarW, rx);
+      c.fill();
+
+      if (di > 0 && shadePct > 0) {
+        const shadowH = pillarW * 0.7;
+        const alpha   = (shadePct / 100) * 0.75;
+        const fromY = state.stackReversed ? y + pillarW : y;
+        const toY   = state.stackReversed ? y + pillarW - shadowH : y + shadowH;
+        const grad  = c.createLinearGradient(0, fromY, 0, toY);
+        grad.addColorStop(0, `rgba(0,0,0,${alpha})`);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        c.save();
+        roundRectPath(c, startX, y, pillarH, pillarW, rx);
+        c.clip();
+        c.fillStyle = grad;
+        c.fillRect(startX, Math.min(fromY, toY), pillarH, shadowH);
+        c.restore();
+      }
+    }
+  } else {
+    // Horizontal stacking (default)
+    const startX  = (cw - totalW) / 2;
+    const startY  = (ch - pillarH) / 2;
+
+    for (let di = 0; di < drawOrder.length; di++) {
+      const i     = drawOrder[di];
+      const x     = startX + i * step;
+      const color = pillarColors[i] !== undefined ? pillarColors[i] : pillarColors[pillarColors.length - 1];
+      c.fillStyle = color;
       roundRectPath(c, x, startY, pillarW, pillarH, rx);
-      c.clip();
-      c.fillStyle = grad;
-      c.fillRect(Math.min(fromX, toX), startY, shadowW, pillarH);
-      c.restore();
+      c.fill();
+
+      if (di > 0 && shadePct > 0) {
+        const shadowW = pillarW * 0.7;
+        const alpha   = (shadePct / 100) * 0.75;
+        const fromX = state.stackReversed ? x + pillarW : x;
+        const toX   = state.stackReversed ? x + pillarW - shadowW : x + shadowW;
+        const grad  = c.createLinearGradient(fromX, 0, toX, 0);
+        grad.addColorStop(0, `rgba(0,0,0,${alpha})`);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        c.save();
+        roundRectPath(c, x, startY, pillarW, pillarH, rx);
+        c.clip();
+        c.fillStyle = grad;
+        c.fillRect(Math.min(fromX, toX), startY, shadowW, pillarH);
+        c.restore();
+      }
     }
   }
 }
@@ -768,26 +811,40 @@ function hitTestCanvas(clientX, clientY) {
 
   const cw = canvas.width;
   const ch = canvas.height;
-  const { pillarCount, pillarWidthPct, pillarHeightPct, overlapPct } = state;
+  const { pillarCount, pillarWidthPct, pillarHeightPct, overlapPct, flipped } = state;
 
-  const pillarW = cw * pillarWidthPct / 100;
-  const pillarH = ch * pillarHeightPct / 100;
+  const pillarW = flipped ? ch * pillarWidthPct / 100 : cw * pillarWidthPct / 100;
+  const pillarH = flipped ? cw * pillarHeightPct / 100 : ch * pillarHeightPct / 100;
   const step    = pillarW * (1 - overlapPct / 100);
   const totalW  = pillarW + step * (pillarCount - 1);
-  const startX  = (cw - totalW) / 2;
-  const startY  = (ch - pillarH) / 2;
 
-  // Test front-to-back: when reversed, index 0 is on top; otherwise last index is on top
   const hitOrder = state.stackReversed
     ? Array.from({ length: pillarCount }, (_, k) => k)
     : Array.from({ length: pillarCount }, (_, k) => pillarCount - 1 - k);
-  for (const i of hitOrder) {
-    const x = startX + i * step;
-    if (mx >= x && mx <= x + pillarW && my >= startY && my <= startY + pillarH) {
-      const trigger = document.getElementById('color-pick-trigger');
-      trigger.htmlFor = `pillar-input-${i}`;
-      trigger.click();
-      break;
+
+  if (flipped) {
+    const startY = (ch - totalW) / 2;
+    const startX = (cw - pillarH) / 2;
+    for (const i of hitOrder) {
+      const y = startY + i * step;
+      if (mx >= startX && mx <= startX + pillarH && my >= y && my <= y + pillarW) {
+        const trigger = document.getElementById('color-pick-trigger');
+        trigger.htmlFor = `pillar-input-${i}`;
+        trigger.click();
+        break;
+      }
+    }
+  } else {
+    const startX = (cw - totalW) / 2;
+    const startY = (ch - pillarH) / 2;
+    for (const i of hitOrder) {
+      const x = startX + i * step;
+      if (mx >= x && mx <= x + pillarW && my >= startY && my <= startY + pillarH) {
+        const trigger = document.getElementById('color-pick-trigger');
+        trigger.htmlFor = `pillar-input-${i}`;
+        trigger.click();
+        break;
+      }
     }
   }
 }
@@ -927,6 +984,9 @@ function syncUI() {
   // Stack order
   document.getElementById('stack-left-btn').classList.toggle('active',  state.stackReversed);
   document.getElementById('stack-right-btn').classList.toggle('active', !state.stackReversed);
+  // Flip (orientation)
+  document.getElementById('flip-off-btn').classList.toggle('active', !state.flipped);
+  document.getElementById('flip-on-btn').classList.toggle('active', state.flipped);
 }
 
 // ── Reset ──────────────────────────────────────────────────────────────────────
@@ -942,11 +1002,100 @@ function resetAll() {
   state.overlapPct      = DEFAULTS.overlapPct;
   state.shadePct        = DEFAULTS.shadePct;
   state.stackReversed   = DEFAULTS.stackReversed;
+  state.flipped         = DEFAULTS.flipped;
 
   syncUI();
   buildPillarSwatches();
   redraw();
 }
+
+// Randomize themed palette
+function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  s /= 100; l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
+}
+
+function generateThemedPalette(count) {
+  const strategies = ['monochrome', 'analogous', 'complementary', 'triadic', 'split'];
+  const strategy = strategies[Math.floor(Math.random() * strategies.length)];
+  const baseHue = Math.random() * 360;
+  const baseSat = 50 + Math.random() * 40; // 50-90
+
+  // Decide if dark or light theme
+  const isDark = Math.random() < 0.35;
+  const colors = [];
+
+  for (let i = 0; i < count; i++) {
+    const t = i / (count - 1); // 0 to 1
+    let hue, sat, lit;
+
+    switch (strategy) {
+      case 'monochrome':
+        hue = baseHue + (Math.random() * 10 - 5);
+        sat = baseSat + (Math.random() * 10 - 5);
+        lit = isDark ? 70 - t * 60 : 80 - t * 55;
+        break;
+      case 'analogous':
+        hue = baseHue + t * 40 - 20;
+        sat = baseSat + (Math.random() * 10 - 5);
+        lit = isDark ? 65 - t * 50 : 78 - t * 50;
+        break;
+      case 'complementary':
+        hue = baseHue + (i < count / 2 ? t * 15 : 180 + t * 15);
+        sat = baseSat;
+        lit = isDark ? 65 - t * 50 : 78 - t * 50;
+        break;
+      case 'triadic':
+        hue = baseHue + (i % 3) * 120 + (Math.random() * 12 - 6);
+        sat = baseSat;
+        lit = isDark ? 65 - t * 45 : 80 - t * 50;
+        break;
+      case 'split':
+        hue = baseHue + (i % 2 === 0 ? -30 : 30) + (Math.random() * 10 - 5);
+        sat = baseSat + (Math.random() * 10 - 5);
+        lit = isDark ? 68 - t * 55 : 80 - t * 55;
+        break;
+    }
+
+    sat = Math.max(20, Math.min(100, sat));
+    lit = Math.max(5, Math.min(95, lit));
+    colors.push(hslToHex(hue, sat, lit));
+  }
+
+  // Background: very light tint or very dark based on theme
+  const bg = isDark
+    ? hslToHex(baseHue, 5 + Math.random() * 10, 2 + Math.random() * 4)
+    : hslToHex(baseHue, 10 + Math.random() * 20, 94 + Math.random() * 5);
+
+  return { bg, colors };
+}
+
+document.getElementById('randomize-btn').addEventListener('click', () => {
+  const { bg, colors } = generateThemedPalette(state.pillarCount);
+  state.bgColor = bg;
+  state.pillarColors = colors;
+
+  document.getElementById('bg-swatch').style.background = state.bgColor;
+  document.getElementById('bg-hex').textContent         = state.bgColor.toUpperCase();
+  document.getElementById('bg-color-input').value       = state.bgColor;
+
+  buildPillarSwatches();
+  redraw();
+});
+
+// Reverse color order
+document.getElementById('reverse-order-btn').addEventListener('click', () => {
+  state.pillarColors.reverse();
+  buildPillarSwatches();
+  redraw();
+});
 
 // ── Export ─────────────────────────────────────────────────────────────────────
 
@@ -1058,6 +1207,28 @@ document.getElementById('shade-slider').addEventListener('input', (e) => {
   redraw();
 });
 
+// Flip (orientation)
+document.getElementById('flip-off-btn').addEventListener('click', () => {
+  state.flipped = false;
+  state.ratio = '16:9';
+  document.getElementById('flip-off-btn').classList.add('active');
+  document.getElementById('flip-on-btn').classList.remove('active');
+  document.querySelectorAll('#ratio-group .ratio-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.ratio === state.ratio);
+  });
+  redraw();
+});
+document.getElementById('flip-on-btn').addEventListener('click', () => {
+  state.flipped = true;
+  state.ratio = '9:16';
+  document.getElementById('flip-on-btn').classList.add('active');
+  document.getElementById('flip-off-btn').classList.remove('active');
+  document.querySelectorAll('#ratio-group .ratio-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.ratio === state.ratio);
+  });
+  redraw();
+});
+
 // Reset
 document.getElementById('reset-btn').addEventListener('click', resetAll);
 
@@ -1074,6 +1245,7 @@ document.getElementById('export-config-btn').addEventListener('click', () => {
     overlapPct: state.overlapPct,
     shadePct: state.shadePct,
     stackReversed: state.stackReversed,
+    flipped: state.flipped,
   };
   const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -1105,6 +1277,7 @@ document.getElementById('import-config-input').addEventListener('change', (e) =>
       if (typeof cfg.overlapPct     === 'number')                state.overlapPct    = cfg.overlapPct;
       if (typeof cfg.shadePct       === 'number')                state.shadePct      = cfg.shadePct;
       if (typeof cfg.stackReversed  === 'boolean')               state.stackReversed = cfg.stackReversed;
+      if (typeof cfg.flipped         === 'boolean')               state.flipped       = cfg.flipped;
       syncUI();
       buildPillarSwatches();
       redraw();
